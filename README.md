@@ -1,36 +1,45 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+This is a [Next.js](https://nextjs.org) project that generates a Strategy Pack from two uploaded PDF documents.
 
 ## Getting Started
 
-First, run the development server:
+1. Install dependencies:
+
+```bash
+npm install
+```
+
+2. Create a `.env` file in the project root with the following values:
+
+```dotenv
+GEMINI_API_KEY=your_gemini_api_key_here
+BLOB_READ_WRITE_TOKEN=your_vercel_blob_write_token_here
+```
+
+3. Start the development server:
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Required Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- `GEMINI_API_KEY`
+  - Used by the server-side API routes to call Gemini via `@google/generative-ai`.
+- `BLOB_READ_WRITE_TOKEN`
+  - Used by the server to fetch private PDF blobs from Vercel Blob storage.
+
+> Do not commit `.env` to source control.
+
+## Project Notes
+
+- Uploads are handled through `app/api/upload/route.ts` and Vercel Blob.
+- Step 1 (`/api/step1`) fetches the uploaded PDFs from blob storage and sends them to Gemini.
+- Step 2 (`/api/step2`) generates the Balanced Scorecard from the Step 1 output.
 
 ## Learn More
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- [Next.js Documentation](https://nextjs.org/docs)
+- [Vercel Blob Documentation](https://vercel.com/docs/concepts/edge-network/blob-storage)
+- [Gemini API / Google Generative AI](https://cloud.google.com/ai)
