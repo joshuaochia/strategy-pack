@@ -1,8 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  /* Brand */
+  --navy: #0d1b2a;
+  --navy-mid: #1a2e42;
+  --slate: #243b55;
+  --orange: #e8511a;
+  --teal: #2ec4b6;
+  --off-white: #e8e8e8;
+  --muted: #8b9caf;
+  /* RAG */
+  --rag-green: #27ae60;
+  --rag-amber: #f39c12;
+  --rag-red: #e74c3c;
 }
 
 @theme inline {
