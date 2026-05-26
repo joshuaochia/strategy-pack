@@ -19,6 +19,9 @@ export default function Home() {
     setStrategyFile,
     clearCompanyFile,
     clearStrategyFile,
+    companyUploading,
+    strategyUploading,
+    uploading,
     generateStep1,
     generateStep2,
     soap,
@@ -45,13 +48,15 @@ export default function Home() {
       className="min-h-screen  text-white"
     >
       <main className="w-full max-w-7xl mx-auto px-6 py-12 space-y-8">
-        {/* ─── Upload Section (idle, files_ready) ─────────────────────────── */}
-        {(appStatus === "idle" || appStatus === "files_ready") && (
+        {/* ─── Upload Section (idle, uploading, files_ready) ─────────────────────────── */}
+        {(appStatus === "idle" || appStatus === "uploading" || appStatus === "files_ready") && (
           <UploadPanel
             companyFile={companyFile}
             strategyFile={strategyFile}
             companyError={companyError}
             strategyError={strategyError}
+            companyUploading={companyUploading}
+            strategyUploading={strategyUploading}
             onCompanyFile={setCompanyFile}
             onStrategyFile={setStrategyFile}
             onClearCompany={clearCompanyFile}

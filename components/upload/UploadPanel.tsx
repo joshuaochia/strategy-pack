@@ -11,6 +11,8 @@ interface UploadPanelProps {
   strategyFile: UploadedFile | null;
   companyError?: string | null;
   strategyError?: string | null;
+  companyUploading: boolean;
+  strategyUploading: boolean;
   loading: boolean;
   onCompanyFile: (file: File) => void;
   onStrategyFile: (file: File) => void;
@@ -24,6 +26,8 @@ export function UploadPanel({
   strategyFile,
   companyError,
   strategyError,
+  companyUploading,
+  strategyUploading,
   loading,
   onCompanyFile,
   onStrategyFile,
@@ -32,6 +36,7 @@ export function UploadPanel({
   onGenerate,
 }: UploadPanelProps) {
   const bothReady = !!companyFile && !!strategyFile;
+  const uploading = companyUploading || strategyUploading;
 
   return (
     <div
@@ -68,7 +73,7 @@ export function UploadPanel({
 
         <StepBadge
           step={1}
-          status={loading ? "active" : bothReady ? "done" : "pending"}
+          status={loading || uploading ? "active" : bothReady ? "done" : "pending"}
           label="SOAP + 3HM"
         />
       </div>
@@ -84,6 +89,7 @@ export function UploadPanel({
           file={companyFile}
           error={companyError}
           disabled={loading}
+          uploading={companyUploading}
           onFile={onCompanyFile}
           onClear={onClearCompany}
         />
@@ -93,6 +99,7 @@ export function UploadPanel({
           file={strategyFile}
           error={strategyError}
           disabled={loading}
+          uploading={strategyUploading}
           onFile={onStrategyFile}
           onClear={onClearStrategy}
         />
@@ -108,7 +115,12 @@ export function UploadPanel({
       >
         {/* Status text */}
         <div className="flex items-center gap-2">
-          {!bothReady && !loading && (
+          {uploading && (
+            <p className="text-xs font-mono animate-pulse" style={{ color: "var(--teal)" }}>
+              Uploading document{companyUploading && strategyUploading ? "s" : ""}…
+            </p>
+          )}
+          {!uploading && !bothReady && !loading && (
             <p
               className="text-xs font-mono"
               style={{ color: "var(--muted-dim)" }}
@@ -120,7 +132,7 @@ export function UploadPanel({
                   : "Upload strategy reference to continue"}
             </p>
           )}
-          {bothReady && !loading && (
+          {!uploading && bothReady && !loading && (
             <p className="text-xs font-mono" style={{ color: "var(--teal)" }}>
               Both documents ready — generate the strategy pack
             </p>
@@ -139,8 +151,8 @@ export function UploadPanel({
         <Button
           variant="primary"
           size="lg"
-          loading={loading}
-          disabled={!bothReady}
+          loading={loading || uploading}
+          disabled={!bothReady || uploading}
           onClick={onGenerate}
           className="gap-2"
         >

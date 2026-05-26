@@ -8,6 +8,7 @@ import {
   X,
   CheckCircle2,
   AlertCircle,
+  Loader2,
 } from "lucide-react";
 import { cn, formatFileSize } from "@/lib/utils";
 import type { UploadedFile } from "@/types";
@@ -18,6 +19,7 @@ interface UploadZoneProps {
   file: UploadedFile | null;
   error?: string | null;
   disabled?: boolean;
+  uploading?: boolean;
   onFile: (file: File) => void;
   onClear: () => void;
 }
@@ -28,6 +30,7 @@ export function UploadZone({
   file,
   error,
   disabled,
+  uploading,
   onFile,
   onClear,
 }: UploadZoneProps) {
@@ -38,13 +41,15 @@ export function UploadZone({
     [onFile],
   );
 
+  const isUploading = uploading && !file;
+
   const { getRootProps, getInputProps, isDragActive, isDragReject } =
     useDropzone({
       onDrop,
       accept: { "application/pdf": [".pdf"] },
       maxFiles: 1,
       maxSize: 20 * 1024 * 1024, // 20MB
-      disabled: disabled || !!file,
+      disabled: disabled || !!file || uploading,
     });
 
   const hasError = !!error || isDragReject;
@@ -103,37 +108,54 @@ export function UploadZone({
           <input {...getInputProps()} />
 
           {/* Icon */}
-          <div
-            className={cn(
-              "flex items-center justify-center w-12 h-12 rounded-sm transition-colors duration-200",
-              isDragActive && !isDragReject
-                ? "bg-[rgba(46,196,182,0.15)] text-[var(--teal)]"
-                : "bg-[var(--navy-light)] text-[var(--muted)]",
-            )}
-          >
-            <UploadCloud size={22} />
-          </div>
+          {isUploading ? (
+            <div className="flex flex-col items-center gap-3">
+              <Loader2 size={24} className="animate-spin" />
+              <p
+                className="text-sm font-medium"
+                style={{ color: "var(--text-primary)" }}
+              >
+                Uploading document…
+              </p>
+              <p className="text-xs" style={{ color: "var(--muted)" }}>
+                Please wait while the file uploads to blob storage.
+              </p>
+            </div>
+          ) : (
+            <>
+              <div
+                className={cn(
+                  "flex items-center justify-center w-12 h-12 rounded-sm transition-colors duration-200",
+                  isDragActive && !isDragReject
+                    ? "bg-[rgba(46,196,182,0.15)] text-[var(--teal)]"
+                    : "bg-[var(--navy-light)] text-[var(--muted)]",
+                )}
+              >
+                <UploadCloud size={22} />
+              </div>
 
-          {/* Text */}
-          <div className="text-center space-y-1">
-            <p
-              className="text-sm font-medium"
-              style={{ color: "var(--text-primary)" }}
-            >
-              {isDragActive && !isDragReject
-                ? "Drop to upload"
-                : "Drag & drop or click to browse"}
-            </p>
-            <p className="text-xs" style={{ color: "var(--muted)" }}>
-              {isDragReject ? "PDF files only" : description}
-            </p>
-            <p
-              className="text-xs font-mono"
-              style={{ color: "var(--muted-dim)" }}
-            >
-              PDF · Max 20MB
-            </p>
-          </div>
+              {/* Text */}
+              <div className="text-center space-y-1">
+                <p
+                  className="text-sm font-medium"
+                  style={{ color: "var(--text-primary)" }}
+                >
+                  {isDragActive && !isDragReject
+                    ? "Drop to upload"
+                    : "Drag & drop or click to browse"}
+                </p>
+                <p className="text-xs" style={{ color: "var(--muted)" }}>
+                  {isDragReject ? "PDF files only" : description}
+                </p>
+                <p
+                  className="text-xs font-mono"
+                  style={{ color: "var(--muted-dim)" }}
+                >
+                  PDF · Max 20MB
+                </p>
+              </div>
+            </>
+          )}
         </div>
       ) : (
         /* File card */

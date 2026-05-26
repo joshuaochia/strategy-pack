@@ -19,10 +19,11 @@ export function useStrategyPack() {
     if (step2.status === "loading") return "step2_loading";
     if (step1.status === "success") return "step1_complete";
     if (step1.status === "loading") return "step1_loading";
+    if (upload.uploading) return "uploading";
     if (upload.bothReady) return "files_ready";
     if (step1.status === "error" || step2.status === "error") return "error";
     return "idle";
-  }, [step1.status, step2.status, upload.bothReady]);
+  }, [step1.status, step2.status, upload.bothReady, upload.uploading]);
 
   // ─── Step 1 trigger ───────────────────────────────────────────────────────
 
@@ -32,8 +33,13 @@ export function useStrategyPack() {
       return;
     }
 
+    if (upload.uploading) {
+      toast.error("Please wait until both files finish uploading");
+      return;
+    }
+
     await step1.run(upload.companyFile.url, upload.strategyFile.url);
-  }, [upload.companyFile, upload.strategyFile, step1]);
+  }, [upload.companyFile, upload.strategyFile, upload.uploading, step1]);
 
   // ─── Step 2 trigger ───────────────────────────────────────────────────────
 
@@ -60,6 +66,9 @@ export function useStrategyPack() {
     strategyFile: upload.strategyFile,
     companyError: upload.companyError,
     strategyError: upload.strategyError,
+    companyUploading: upload.companyUploading,
+    strategyUploading: upload.strategyUploading,
+    uploading: upload.uploading,
     setCompanyFile: upload.setCompanyFile,
     setStrategyFile: upload.setStrategyFile,
     clearCompanyFile: upload.clearCompanyFile,

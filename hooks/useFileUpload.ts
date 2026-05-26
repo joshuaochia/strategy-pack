@@ -11,6 +11,9 @@ interface FileUploadState {
   strategyFile: UploadedFile | null;
   companyError: string | null;
   strategyError: string | null;
+  companyUploading: boolean;
+  strategyUploading: boolean;
+  uploading: boolean;
   bothReady: boolean;
 }
 
@@ -58,6 +61,8 @@ export function useFileUpload(): UseFileUploadReturn {
   );
   const [companyError, setCompanyError] = useState<string | null>(null);
   const [strategyError, setStrategyError] = useState<string | null>(null);
+  const [companyUploading, setCompanyUploading] = useState(false);
+  const [strategyUploading, setStrategyUploading] = useState(false);
 
   const setCompanyFile = useCallback(async (file: File) => {
     const error = validateFile(file);
@@ -66,9 +71,23 @@ export function useFileUpload(): UseFileUploadReturn {
       setCompanyFileState(null);
       return;
     }
+
     setCompanyError(null);
-    const processed = await processFile(file);
-    setCompanyFileState(processed);
+    setCompanyUploading(true);
+
+    try {
+      const processed = await processFile(file);
+      setCompanyFileState(processed);
+    } catch (err) {
+      setCompanyFileState(null);
+      setCompanyError(
+        err instanceof Error
+          ? err.message
+          : "Failed to upload company document",
+      );
+    } finally {
+      setCompanyUploading(false);
+    }
   }, []);
 
   const setStrategyFile = useCallback(async (file: File) => {
@@ -78,9 +97,23 @@ export function useFileUpload(): UseFileUploadReturn {
       setStrategyFileState(null);
       return;
     }
+
     setStrategyError(null);
-    const processed = await processFile(file);
-    setStrategyFileState(processed);
+    setStrategyUploading(true);
+
+    try {
+      const processed = await processFile(file);
+      setStrategyFileState(processed);
+    } catch (err) {
+      setStrategyFileState(null);
+      setStrategyError(
+        err instanceof Error
+          ? err.message
+          : "Failed to upload strategy document",
+      );
+    } finally {
+      setStrategyUploading(false);
+    }
   }, []);
 
   const clearCompanyFile = useCallback(() => {
@@ -105,6 +138,9 @@ export function useFileUpload(): UseFileUploadReturn {
     strategyFile,
     companyError,
     strategyError,
+    companyUploading,
+    strategyUploading,
+    uploading: companyUploading || strategyUploading,
     bothReady: !!companyFile && !!strategyFile,
     setCompanyFile,
     setStrategyFile,

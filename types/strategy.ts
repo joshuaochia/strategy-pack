@@ -83,6 +83,7 @@ export interface StrategyPack extends Step1Output, Step2Output {}
 
 export type AppStatus =
   | "idle"
+  | "uploading"
   | "files_ready"
   | "step1_loading"
   | "step1_complete"
