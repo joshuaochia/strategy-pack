@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import anthropic, { MODEL, MAX_TOKENS } from "@/lib/anthropic";
+import { geminiModel } from "@/lib/gemini";
 import { STEP2_SYSTEM_PROMPT, STEP2_USER_PROMPT } from "@/lib/prompts";
 import { Step2OutputSchema } from "@/lib/schemas";
 import { safeParseJSON, extractTextContent } from "@/lib/utils";
@@ -17,28 +17,33 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: STEP2_SYSTEM_PROMPT,
-      messages: [
+    // ✅ Gemini call using the new model SDK implementation
+    const result = await geminiModel.generateContent({
+      contents: [
         {
           role: "user",
-          content: STEP2_USER_PROMPT(JSON.stringify(step1Output, null, 2)),
+          parts: [
+            {
+              text: `${STEP2_SYSTEM_PROMPT}\n\n${STEP2_USER_PROMPT(
+                JSON.stringify(step1Output, null, 2),
+              )}`,
+            },
+          ],
         },
       ],
     });
 
-    const raw = extractTextContent(
-      response.content as Array<{ type: string; text?: string }>,
-    );
+    const response = await result.response;
+    const raw = response.text();
 
     const parsed = safeParseJSON(raw);
+
     if (!parsed) {
       console.error(
         "[/api/step2] Failed to parse JSON from model response:",
         raw,
       );
+
       return NextResponse.json(
         {
           success: false,
@@ -49,11 +54,13 @@ export async function POST(req: NextRequest) {
     }
 
     const validated = Step2OutputSchema.safeParse(parsed);
+
     if (!validated.success) {
       console.error(
         "[/api/step2] Zod validation failed:",
         validated.error.flatten(),
       );
+
       return NextResponse.json(
         {
           success: false,
@@ -67,6 +74,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: true, data: validated.data });
   } catch (err) {
     console.error("[/api/step2] Unexpected error:", err);
+
     return NextResponse.json(
       {
         success: false,

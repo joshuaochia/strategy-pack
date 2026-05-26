@@ -14,7 +14,7 @@ export function fileToBase64(file: File): Promise<string> {
     const reader = new FileReader();
     reader.onload = () => {
       const result = reader.result as string;
-      // Strip the data URL prefix — Anthropic wants raw base64
+      // Strip the data URL prefix so the uploaded PDF content can be sent cleanly.
       const base64 = result.split(",")[1];
       resolve(base64);
     };
@@ -46,7 +46,7 @@ export function safeParseJSON<T = unknown>(raw: string): T | null {
   }
 }
 
-// ─── EXTRACT TEXT FROM ANTHROPIC RESPONSE ────────────────────────────────────
+// ─── EXTRACT TEXT FROM MODEL RESPONSE ──────────────────────────────────────
 
 export function extractTextContent(
   content: Array<{ type: string; text?: string }>,

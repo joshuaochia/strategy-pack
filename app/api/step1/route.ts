@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import anthropic, { MODEL, MAX_TOKENS } from "@/lib/anthropic";
+import { geminiModel } from "@/lib/gemini";
 import { STEP1_SYSTEM_PROMPT, STEP1_USER_PROMPT } from "@/lib/prompts";
 import { Step1OutputSchema } from "@/lib/schemas";
-import { safeParseJSON, extractTextContent } from "@/lib/utils";
+import { safeParseJSON } from "@/lib/utils";
 import type { Step1Request } from "@/types";
+
+export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,44 +19,44 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const response = await anthropic.messages.create({
-      model: MODEL,
-      max_tokens: MAX_TOKENS,
-      system: STEP1_SYSTEM_PROMPT,
-      messages: [
+    const result = await geminiModel.generateContent({
+      contents: [
         {
           role: "user",
-          content: [
+          parts: [
+            // System instructions
+            { text: STEP1_SYSTEM_PROMPT },
+
+            // Company PDF sent natively — no parsing needed
+            { text: "--- COMPANY DOCUMENT ---" },
             {
-              type: "document",
-              source: {
-                type: "base64",
-                media_type: "application/pdf",
+              inlineData: {
+                mimeType: "application/pdf",
                 data: companyDocBase64,
               },
             },
+
+            // Strategy PDF sent natively
+            { text: "--- STRATEGY DOCUMENT ---" },
             {
-              type: "document",
-              source: {
-                type: "base64",
-                media_type: "application/pdf",
+              inlineData: {
+                mimeType: "application/pdf",
                 data: strategyDocBase64,
               },
             },
-            {
-              type: "text",
-              text: STEP1_USER_PROMPT,
-            },
+
+            // Task
+            { text: `--- TASK ---\n${STEP1_USER_PROMPT}` },
           ],
         },
       ],
     });
 
-    const raw = extractTextContent(
-      response.content as Array<{ type: string; text?: string }>,
-    );
+    const response = await result.response;
+    const raw = response.text();
 
     const parsed = safeParseJSON(raw);
+
     if (!parsed) {
       console.error(
         "[/api/step1] Failed to parse JSON from model response:",
@@ -70,6 +72,7 @@ export async function POST(req: NextRequest) {
     }
 
     const validated = Step1OutputSchema.safeParse(parsed);
+
     if (!validated.success) {
       console.error(
         "[/api/step1] Zod validation failed:",

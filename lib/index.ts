@@ -1,4 +1,4 @@
-export { default as anthropic, MODEL, MAX_TOKENS } from "./anthropic";
+export { default as gemini, MODEL, MAX_TOKENS } from "./gemini";
 export * from "./utils";
 export * from "./prompts";
 export * from "./schemas";

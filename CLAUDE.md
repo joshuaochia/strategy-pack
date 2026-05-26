@@ -1,14 +1,14 @@
-# StratiFi Project: Claude AI Integration
+# StratiFi Project: Gemini AI Integration
 
-This document outlines the integration and usage of Claude AI within the StratiFi project, a single-page web application designed to generate a comprehensive Strategy Pack from two uploaded PDF documents. The project leverages a two-step AI pipeline to produce Strategy-On-A-Page (SOAP), 3-Horizon Model (3HM), and Balanced Scorecard (BSC) frameworks.
+This document outlines the integration and usage of Gemini AI within the StratiFi project, a single-page web application designed to generate a comprehensive Strategy Pack from two uploaded PDF documents. The project leverages a two-step AI pipeline to produce Strategy-On-A-Page (SOAP), 3-Horizon Model (3HM), and Balanced Scorecard (BSC) frameworks.
 
 ## 1. Project Overview
 
 The StratiFi application processes a company overview document and a strategy reference document (both in PDF format) to generate a Strategy Pack. The AI is the sole source of information for generating this pack. The output is displayed directly on the website and is not downloaded or exported.
 
-## 2. Claude AI Integration
+## 2. Gemini AI Integration
 
-Claude AI is a core component of the StratiFi project, specifically utilized for generating the strategic frameworks. The integration is managed through the official `@anthropic-ai/sdk` [1], which handles streaming, base64 document encoding, and typed responses. The AI processing is divided into two distinct steps, each exposed via a Next.js API route.
+Gemini AI is a core component of the StratiFi project, specifically utilized for generating the strategic frameworks. The integration is managed through the official `@google/generative-ai` library, which handles Gemini model calls and typed responses. The AI processing is divided into two distinct steps, each exposed via a Next.js API route.
 
 ### 2.1. AI Pipeline (Data Flow)
 
@@ -16,20 +16,21 @@ The application follows a two-step AI pipeline:
 
 1.  **Step 1: Generate SOAP + 3HM**
     - **Input**: The user uploads two PDF documents (company overview and strategy reference). These are converted to base64 format using the `useFileUpload()` hook.
-    - **Process**: The base64 encoded PDFs are posted to the `/api/step1` endpoint. Claude AI processes these documents to generate the SOAP and 3HM frameworks.
+    - **Process**: The PDF base64 payload is posted to the `/api/step1` endpoint. The server extracts text from the PDFs using `pdf-parse`, then passes the extracted text to Gemini. This avoids sending expensive binary/base64 payloads directly into the model prompt.
     - **Output**: The `useStep1()` hook fetches and validates the JSON response using Zod schemas, storing the SOAP and 3HM output in the application state. The generated content is then rendered on the UI.
 
 2.  **Step 2: Generate BSC**
     - **Input**: The output from Step 1 (SOAP and 3HM data) is used as input for this step. Raw files are not used again.
-    - **Process**: This data is posted to the `/api/step2` endpoint. Claude AI generates the Balanced Scorecard (BSC) based on the previously generated frameworks.
+    - **Process**: This data is posted to the `/api/step2` endpoint. Gemini AI generates the Balanced Scorecard (BSC) based on the previously generated frameworks.
     - **Output**: The `useStep2()` hook retrieves and validates the BSC data. The BSC framework is then rendered, completing the Strategy Pack.
 
 ### 2.2. Key AI-related Packages and Utilities
 
-- **`@anthropic-ai/sdk`**: The official SDK for interacting with Claude AI from Next.js API routes. It supports streaming, base64 documents, and typed responses.
-- **`prompts.ts`**: This file (`lib/prompts.ts`) centralizes all system and user prompts used for interacting with Claude AI, ensuring consistency and ease of management.
+- **`@google/generative-ai`**: The official library for interacting with Gemini AI from Next.js API routes.
+- **`pdf-parse`**: Used on the server to extract text from uploaded PDFs before the text is sent to Gemini.
+- **`prompts.ts`**: This file (`lib/prompts.ts`) centralizes all system and user prompts used for interacting with Gemini AI, ensuring consistency and ease of management.
 - **`schemas.ts`**: Zod schemas (`lib/schemas.ts`) are used to validate the JSON output from each AI step, ensuring data integrity and graceful handling of malformed responses.
-- **`anthropic.ts`**: Contains the SDK client singleton (`lib/anthropic.ts`) for Claude AI.
+- **`gemini.ts`**: Contains the SDK client singleton (`lib/gemini.ts`) for Gemini AI.
 
 ## 3. Framework Outputs and Evaluation
 
@@ -67,7 +68,7 @@ _Note: RAG Status and Lead fields are left blank for the user to complete, requi
 
 ## 4. AI Tool Usage and Evaluation Criteria
 
-The project encourages the use of AI coding assistants like Claude, Cursor, Copilot, or similar. The evaluation of the project will consider:
+The project encourages the use of AI coding assistants like Gemini, Cursor, Copilot, or similar. The evaluation of the project will consider:
 
 - **Output Quality**: The AI output must be meaningful, structured, and specific to the company provided. The BSC generated in Step 2 must genuinely reflect the strategy established in Step 1.
 - **UI & Design**: The application's look and feel should convey a professional, consultant-like quality suitable for a boardroom presentation.
@@ -127,7 +128,7 @@ The project follows the Next.js App Router structure:
     useStrategyPack.ts — orchestrator hook for the whole pipeline state
 
   📁 lib/
-    anthropic.ts — SDK client singleton
+    gemini.ts — SDK client singleton
     prompts.ts — all system + user prompts
     schemas.ts — Zod schemas for AI output
     utils.ts — cn(), fileToBase64(), etc.
@@ -194,8 +195,8 @@ The project follows the Next.js App Router structure:
 
 | Hook                | Description                                                                                                                                    | Returns                                                                  |
 | :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------- |
-| `useFileUpload()`   | Manages two file slots (company doc + strategy doc). Converts each to base64 on selection. Validates PDF type and size (<20MB).                | `→ { companyFile, strategyFile, setFile, clearFile, bothReady, errors }` |
-| `useStep1()`        | Posts base64 PDFs to `/api/step1`. Parses and validates JSON response with Zod. Stores SOAP + 3HM output in state.                             | `→ { run, data, loading, error, status }`                                |
+| `useFileUpload()`   | Manages two file slots (company doc + strategy doc). Converts each PDF to base64 for transport to the server. Validates PDF type and size (<20MB).                | `→ { companyFile, strategyFile, setFile, clearFile, bothReady, errors }` |
+| `useStep1()`        | Posts PDF base64 to `/api/step1`. The server extracts text from the PDFs using `pdf-parse` and sends that extracted text to Gemini. Parses and validates JSON response with Zod. Stores SOAP + 3HM output in state.                             | `→ { run, data, loading, error, status }`                                |
 | `useStep2()`        | Takes Step 1 output (not raw files). Posts to `/api/step2`. Returns validated BSC data. Cannot run before Step 1 completes.                    | `→ { run, data, loading, error, status }`                                |
 | `useStrategyPack()` | Orchestrator hook used in `page.tsx`. Combines `useStep1` + `useStep2` + `useFileUpload`. Single source of truth for the whole pipeline state. | `→ { upload, step1, step2, appState }`                                   |
 
