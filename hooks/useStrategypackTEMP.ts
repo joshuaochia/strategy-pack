@@ -7,7 +7,7 @@ import { useStep1 } from "./useStep1";
 import { useStep2 } from "./useStep2";
 import type { AppStatus } from "@/types";
 
-export function useStrategypack() {
+export function useStrategyPack() {
   const upload = useFileUpload();
   const step1 = useStep1();
   const step2 = useStep2();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useStrategypack } from "@/hooks";
+import { useStrategyPack } from "@/hooks";
 import { UploadPanel } from "@/components/upload";
 import { SOAPSection } from "@/components/soap";
 import { THMSection } from "@/components/thm";
@@ -26,7 +26,7 @@ export default function Home() {
     bsc,
     step1Loading,
     step2Loading,
-  } = useStrategypack();
+  } = useStrategyPack();
 
   const showFrameworks =
     appStatus === "step1_loading" ||
