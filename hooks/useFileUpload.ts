@@ -3,6 +3,7 @@
 import { useState, useCallback } from "react";
 import { fileToBase64, formatFileSize } from "@/lib/utils";
 import type { UploadedFile } from "@/types";
+import { upload } from "@vercel/blob/client";
 
 const MAX_SIZE_BYTES = 20 * 1024 * 1024; // 20MB
 
@@ -26,22 +27,24 @@ interface UseFileUploadReturn extends FileUploadState {
 }
 
 async function processFile(file: File): Promise<UploadedFile> {
-  // Upload to Vercel Blob via your /api/upload route
-  const form = new FormData();
-  form.append("file", file);
+  try {
+    const newBlob = await upload(file.name, file, {
+      access: "private", // Or 'public' depending on your needs
+      handleUploadUrl: "/api/upload", // This is your new API route
+    });
 
-  const res = await fetch("/api/upload", { method: "POST", body: form });
-  const { url } = await res.json();
-
-  return {
-    file,
-    base64: "", // no longer needed
-    url, // blob URL — pass this to step1
-    name: file.name,
-    sizeKB: Math.round(file.size / 1024),
-  };
+    return {
+      file,
+      base64: "",
+      url: newBlob.url, // The URL of the uploaded blob
+      name: file.name,
+      sizeKB: Math.round(file.size / 1024),
+    };
+  } catch (error) {
+    console.error("Error during client-side upload:", error);
+    throw new Error("Failed to upload file directly to Vercel Blob.");
+  }
 }
-
 function validateFile(file: File): string | null {
   if (file.type !== "application/pdf") {
     return "Only PDF files are accepted";
