@@ -48,8 +48,11 @@ export default function Home() {
       className="min-h-screen  text-white"
     >
       <main className="w-full max-w-7xl mx-auto px-6 py-12 space-y-8">
-        {/* ─── Upload Section (idle, uploading, files_ready) ─────────────────────────── */}
-        {(appStatus === "idle" || appStatus === "uploading" || appStatus === "files_ready") && (
+        {/* ─── Upload Section (idle, uploading, files_ready, step1_loading) ─────────────────────────── */}
+        {(appStatus === "idle" ||
+          appStatus === "uploading" ||
+          appStatus === "files_ready" ||
+          appStatus === "step1_loading") && (
           <UploadPanel
             companyFile={companyFile}
             strategyFile={strategyFile}

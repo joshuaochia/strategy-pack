@@ -73,7 +73,9 @@ export function UploadPanel({
 
         <StepBadge
           step={1}
-          status={loading || uploading ? "active" : bothReady ? "done" : "pending"}
+          status={
+            loading || uploading ? "active" : bothReady ? "done" : "pending"
+          }
           label="SOAP + 3HM"
         />
       </div>
@@ -116,8 +118,12 @@ export function UploadPanel({
         {/* Status text */}
         <div className="flex items-center gap-2">
           {uploading && (
-            <p className="text-xs font-mono animate-pulse" style={{ color: "var(--teal)" }}>
-              Uploading document{companyUploading && strategyUploading ? "s" : ""}…
+            <p
+              className="text-xs font-mono animate-pulse"
+              style={{ color: "var(--teal)" }}
+            >
+              Uploading document
+              {companyUploading && strategyUploading ? "s" : ""}…
             </p>
           )}
           {!uploading && !bothReady && !loading && (
@@ -138,12 +144,21 @@ export function UploadPanel({
             </p>
           )}
           {loading && (
-            <p
-              className="text-xs font-mono animate-pulse"
-              style={{ color: "var(--teal)" }}
-            >
-              Analysing documents and generating SOAP + 3HM…
-            </p>
+            <div className="space-y-1">
+              <p
+                className="text-xs font-mono animate-pulse"
+                style={{ color: "var(--teal)" }}
+              >
+                Analysing documents and generating SOAP + 3HM…
+              </p>
+              <p
+                className="text-xs font-mono"
+                style={{ color: "var(--muted)" }}
+              >
+                Please do not close, refresh or navigate away until generation
+                completes.
+              </p>
+            </div>
           )}
         </div>
 
