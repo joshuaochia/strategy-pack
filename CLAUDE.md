@@ -1,260 +1,124 @@
 # StratiFi Project: Gemini AI Integration
 
-This document outlines the integration and usage of Gemini AI within the StratiFi project, a single-page web application designed to generate a comprehensive Strategy Pack from two uploaded PDF documents. The project leverages a two-step AI pipeline to produce Strategy-On-A-Page (SOAP), 3-Horizon Model (3HM), and Balanced Scorecard (BSC) frameworks.
+This document describes the current StratiFi app flow after the Vercel Blob upload change. The app accepts two PDFs, uploads them to blob storage, and generates a Strategy Pack in two AI steps: SOAP + 3HM, then BSC.
 
 ## 1. Project Overview
 
-The StratiFi application processes a company overview document and a strategy reference document (both in PDF format) to generate a Strategy Pack. The AI is the sole source of information for generating this pack. The output is displayed directly on the website and is not downloaded or exported.
+StratiFi accepts two PDF source files:
+- a company overview document
+- a strategy reference document
 
-## 2. Gemini AI Integration
+The app uploads both PDFs to Vercel Blob storage first, then uses the returned blob URLs for Step 1. The AI is the engine behind the strategy output, and the results are rendered in the browser.
 
-Gemini AI is a core component of the StratiFi project, specifically utilized for generating the strategic frameworks. The integration is managed through the official `@google/generative-ai` library, which handles Gemini model calls and typed responses. The AI processing is divided into two distinct steps, each exposed via a Next.js API route.
+## 2. Upload + AI Pipeline
 
-### 2.1. AI Pipeline (Data Flow)
+### 2.1. Upload flow
 
-The application follows a two-step AI pipeline:
+- Users upload PDFs using `UploadZone` components.
+- `useFileUpload()` validates file type and size, then uploads files through `@vercel/blob/client`.
+- The upload endpoint is `/api/upload`, which delegates to `handleUpload()`.
+- The route is configured to accept PDFs and uses `addRandomSuffix: true` to avoid filename collisions.
+- Each uploaded file stores a private blob URL that later feeds Step 1.
 
-1.  **Step 1: Generate SOAP + 3HM**
-    - **Input**: The user uploads two PDF documents (company overview and strategy reference). These are converted to base64 format using the `useFileUpload()` hook.
-    - **Process**: The PDF base64 payload is posted to the `/api/step1` endpoint. The server extracts text from the PDFs using `pdf-parse`, then passes the extracted text to Gemini. This avoids sending expensive binary/base64 payloads directly into the model prompt.
-    - **Output**: The `useStep1()` hook fetches and validates the JSON response using Zod schemas, storing the SOAP and 3HM output in the application state. The generated content is then rendered on the UI.
+### 2.2. Step 1: Generate SOAP + 3HM
 
-2.  **Step 2: Generate BSC**
-    - **Input**: The output from Step 1 (SOAP and 3HM data) is used as input for this step. Raw files are not used again.
-    - **Process**: This data is posted to the `/api/step2` endpoint. Gemini AI generates the Balanced Scorecard (BSC) based on the previously generated frameworks.
-    - **Output**: The `useStep2()` hook retrieves and validates the BSC data. The BSC framework is then rendered, completing the Strategy Pack.
+- When the user clicks Generate, `useStep1()` sends `companyDocUrl` and `strategyDocUrl` to `/api/step1`.
+- The server fetches both PDFs from private blob storage using the blob access token.
+- The PDFs are converted to base64 inside the server route.
+- Gemini is called with `inlineData` payloads for both documents.
+- The response is parsed and validated with Zod, then rendered as SOAP + 3HM.
 
-### 2.2. Key AI-related Packages and Utilities
+### 2.3. Step 2: Generate BSC
 
-- **`@google/generative-ai`**: The official library for interacting with Gemini AI from Next.js API routes.
-- **`pdf-parse`**: Used on the server to extract text from uploaded PDFs before the text is sent to Gemini.
-- **`prompts.ts`**: This file (`lib/prompts.ts`) centralizes all system and user prompts used for interacting with Gemini AI, ensuring consistency and ease of management.
-- **`schemas.ts`**: Zod schemas (`lib/schemas.ts`) are used to validate the JSON output from each AI step, ensuring data integrity and graceful handling of malformed responses.
-- **`gemini.ts`**: Contains the SDK client singleton (`lib/gemini.ts`) for Gemini AI.
+- After Step 1 completes, the app uses the generated SOAP + 3HM data as input for `/api/step2`.
+- Gemini returns Balanced Scorecard output.
+- The response is validated and rendered in the BSC section.
 
-## 3. Framework Outputs and Evaluation
+## 3. Current Implementation Notes
 
-The AI generates content for three frameworks:
+### Upload handling
 
-### 3.1. Strategy On A Page (SOAP)
+- `app/api/upload/route.ts`
+  - uses `handleUpload()` from `@vercel/blob/client`
+  - allows `application/pdf`
+  - enables `addRandomSuffix: true`
+  - logs completed blob uploads in `onUploadCompleted`
 
-| Field      | Purpose                                                         | Output       |
-| :--------- | :-------------------------------------------------------------- | :----------- |
-| Vision     | The desired future state of the organisation                    | AI Generated |
-| Mission    | The core purpose and what the organisation exists to do         | AI Generated |
-| Goals      | Major outcomes the organisation wants to achieve (2-3)          | AI Generated |
-| Objectives | Specific, actionable statements that break down the goals (3-4) | AI Generated |
+- `hooks/useFileUpload.ts`
+  - uploads directly from the browser via `upload()` instead of building local base64 payloads
+  - tracks `companyUploading`, `strategyUploading`, and `uploading`
+  - stores the returned `url` for each blob upload
 
-### 3.2. 3-Horizon Model (3HM)
+### Step 1 server flow
 
-| Field          | Purpose                                           | Output       |
-| :------------- | :------------------------------------------------ | :----------- |
-| 12-Month Goals | Short-term priorities for the next year           | AI Generated |
-| 24-Month Goals | Mid-term priorities for the following two years   | AI Generated |
-| 36-Month Goals | Longer-term priorities for the three-year horizon | AI Generated |
+- `app/api/step1/route.ts`
+  - receives blob URLs from the client
+  - validates both `companyDocUrl` and `strategyDocUrl`
+  - fetches the private PDFs server-side using `process.env.BLOB_READ_WRITE_TOKEN`
+  - converts each PDF to base64 for the Gemini request
+  - validates the Gemini output with `Step1OutputSchema`
 
-### 3.3. Balanced Scorecard (BSC)
+## 4. Key Packages
 
-The BSC covers four perspectives: Financial, Customers & Partners, Systems & Processes, and Learning & Growth. The AI generates a maximum of four rows per perspective.
+- `@google/generative-ai`
+  - Gemini model calls from the server
+- `@vercel/blob`
+  - browser upload helper and server-side upload route
+- `react-dropzone`
+  - drag-and-drop upload UI
+- `sonner`
+  - toast notifications for upload and AI errors
+- `zod`
+  - response validation for AI outputs
 
-| Field                                        | Purpose                                                                       | Output       |
-| :------------------------------------------- | :---------------------------------------------------------------------------- | :----------- |
-| Objective                                    | The strategic outcome being pursued                                           | AI Generated |
-| Performance Measure & Target (SMART Actions) | The metric used to track progress and desired level or result for the measure | AI Generated |
-| RAG Status                                   | Red-Amber-Green progress indicator                                            | Leave Blank  |
-| Lead                                         | The person responsible for execution                                          | Leave Blank  |
+## 5. Generated Frameworks
 
-_Note: RAG Status and Lead fields are left blank for the user to complete, requiring human judgment and organizational knowledge._ [2]
+### Strategy On A Page (SOAP)
 
-## 4. AI Tool Usage and Evaluation Criteria
+| Field      | Purpose                                                         |
+| :--------- | :-------------------------------------------------------------- |
+| Vision     | The desired future state of the organisation                    |
+| Mission    | The core purpose and what the organisation exists to do         |
+| Goals      | Major outcomes the organisation wants to achieve                |
+| Objectives | Specific, actionable statements that break down the goals       |
 
-The project encourages the use of AI coding assistants like Gemini, Cursor, Copilot, or similar. The evaluation of the project will consider:
+### 3-Horizon Model (3HM)
 
-- **Output Quality**: The AI output must be meaningful, structured, and specific to the company provided. The BSC generated in Step 2 must genuinely reflect the strategy established in Step 1.
-- **UI & Design**: The application's look and feel should convey a professional, consultant-like quality suitable for a boardroom presentation.
+| Field          | Purpose                                           |
+| :------------- | :------------------------------------------------ |
+| 12-Month Goals | Short-term priorities for the next year           |
+| 24-Month Goals | Mid-term priorities for the following two years   |
+| 36-Month Goals | Longer-term priorities for the three-year horizon |
 
-## References
+### Balanced Scorecard (BSC)
 
-[1] StratiFi Architecture Design (`stratifi_architecture_design.html`)
-[2] STRATIFI Skill Test Brief (local file: `STRATIFI_Skill_Test_Brief.pdf`)
+- Four perspectives: Financial, Customers & Partners, Systems & Processes, Learning & Growth
+- Each row includes Objective, SMART Actions, RAG status placeholder, and Lead placeholder
+- RAG + Lead are intentionally left blank for user completion
 
-## 5. Technical Architecture
+## 6. App Architecture
 
-### 5.1. File Structure
+### File structure highlights
 
-The project follows the Next.js App Router structure:
+- `app/page.tsx` — orchestrates upload, Step 1, and Step 2
+- `app/api/upload/route.ts` — Vercel Blob upload token route
+- `app/api/step1/route.ts` — PDF fetch + Gemini SOAP/3HM generation
+- `app/api/step2/route.ts` — BSC generation from Step 1 output
+- `components/upload/UploadPanel.tsx` — upload UI + generate CTA
+- `components/upload/UploadZone.tsx` — single PDF dropzone
+- `hooks/useFileUpload.ts` — upload state + blob URL management
+- `hooks/useStep1.ts` — call Step 1 API and parse output
+- `hooks/useStep2.ts` — call Step 2 API and parse output
+- `hooks/useStrategyPack.ts` — application state orchestration
 
-```
-📁 stratifi/
-  📁 app/
-    layout.tsx — fonts, metadata, Toaster provider
-    page.tsx — single page, orchestrates all steps
-    globals.css — design tokens, base styles
-    📁 api/
-      📁 step1/
-        route.ts — SOAP + 3HM generation
-      📁 step2/
-        route.ts — BSC generation from Step 1
+## 7. User experience
 
-  📁 components/
-    📁 upload/
-      UploadZone.tsx — dropzone for one PDF slot
-      UploadPanel.tsx — both zones + step 1 trigger
-    📁 soap/
-      SOAPSection.tsx — full SOAP framework view
-      VisionMission.tsx — hexagon card pair
-      GoalCard.tsx — chevron banner + objectives
-      ValuesBar.tsx — leadership values strip
-    📁 thm/
-      THMSection.tsx — full 3HM framework view
-      HorizonCard.tsx — single H1/H2/H3 block
-      HorizonCurve.tsx — SVG growth curve visual
-    📁 bsc/
-      BSCSection.tsx — full BSC framework view
-      BSCTable.tsx — table with 4 perspectives
-      BSCRow.tsx — single objective row
-      RAGBadge.tsx — blank R/A/G status pill
-    📁 ui/
-      Button.tsx — primary/ghost variants
-      FrameworkHeader.tsx — dark navy section header
-      LoadingSkeleton.tsx — shimmer placeholders
-      SectionDivider.tsx — decorative step separator
-      StepBadge.tsx — Step 1 / Step 2 indicator
+- Upload panel remains visible while files upload and while Step 1 is generating
+- Step 1 now shows a clear loading indicator that instructs users not to close or refresh
+- The generate button is disabled until both files are uploaded and ready
 
-  📁 hooks/
-    useStep1.ts — SOAP + 3HM fetch + state
-    useStep2.ts — BSC fetch + state
-    useFileUpload.ts — file to base64 + validation
-    useStrategyPack.ts — orchestrator hook for the whole pipeline state
+## 8. Notes
 
-  📁 lib/
-    gemini.ts — SDK client singleton
-    prompts.ts — all system + user prompts
-    schemas.ts — Zod schemas for AI output
-    utils.ts — cn(), fileToBase64(), etc.
-
-  📁 types/
-    strategy.ts — SOAP, THM, BSC TypeScript types
-    api.ts — API request/response types
-```
-
-### 5.2. Components
-
-#### Pages
-
-| Component        | Description                                                                                     | Props                 |
-| :--------------- | :---------------------------------------------------------------------------------------------- | :-------------------- |
-| `app/page.tsx`   | Root orchestrator                                                                               | `none` — top-level    |
-| `app/layout.tsx` | IBM Plex Sans + Mono font loading, metadata, dark background base, Sonner Toaster mounted here. | `children: ReactNode` |
-
-#### Upload Components
-
-| Component     | Description                                                                                               | Props                              |
-| :------------ | :-------------------------------------------------------------------------------------------------------- | :--------------------------------- |
-| `UploadPanel` | Container for both upload zones side-by-side. Shows "Generate Strategy" button when both files are ready. | `onGenerate`, `loading`            |
-| `UploadZone`  | Single dropzone slot. Accepts PDF only. Shows file name + size on upload. Drag-over state animation.      | `label`, `onFile`, `file`, `error` |
-
-#### SOAP Components
-
-| Component       | Description                                                                                                | Props                           |
-| :-------------- | :--------------------------------------------------------------------------------------------------------- | :------------------------------ |
-| `SOAPSection`   | Wrapper with FrameworkHeader. Renders VisionMission, three GoalCards, and ValuesBar.                       | `data: SOAPData`                |
-| `VisionMission` | Two-column hexagon-accented cards. Vision left, Mission right. Navy fill with orange accent line.          | `vision`, `mission: string`     |
-| `GoalCard`      | Chevron-style numbered goal banner in dark navy. Objectives listed below with numbered prefix (1.1, 1.2…). | `index`, `goal`, `objectives[]` |
-| `ValuesBar`     | Full-width horizontal strip with 4 leadership values in equal columns. Muted slate fill.                   | `values: string[]`              |
-
-#### 3HM Components
-
-| Component      | Description                                                                                                     | Props                  |
-| :------------- | :-------------------------------------------------------------------------------------------------------------- | :--------------------- |
-| `THMSection`   | Wrapper with header. Renders HorizonCurve SVG alongside three HorizonCards stacked vertically.                  | `data: THMData`        |
-| `HorizonCurve` | SVG S-curve growth chart. H1/H2/H3 zones marked. Decorative — matches template visual.                          | `active: 1\|2\|3`      |
-| `HorizonCard`  | Single horizon block with H1/H2/H3 hexagon badge, title (Operationalise/Integrate/Endure), and objectives list. | `horizon: HorizonData` |
-
-#### BSC Components
-
-| Component    | Description                                                                                                                               | Props                            |
-| :----------- | :---------------------------------------------------------------------------------------------------------------------------------------- | :------------------------------- |
-| `BSCSection` | Wrapper with header and Step 2 trigger button. Shows loading state until step 2 completes.                                                | `data`, `onGenerate`, `loading`  |
-| `BSCTable`   | Full scorecard table. Groups rows by perspective (Financial, Customers, Systems, Learning). Each group has a coloured left-border accent. | `perspectives: BSCPerspective[]` |
-| `BSCRow`     | Single table row. Objective \| SMART Actions \| RAGBadge (blank) \| Lead (blank dash).                                                    | `row: BSCRow`                    |
-| `RAGBadge`   | R/A/G pill — rendered as empty outlined circles. User fills manually after generation.                                                    | `status?: 'R'\|'A'\|'G'`         |
-
-#### Shared UI Components
-
-| Component         | Description                                                                                              | Props                           |
-| :---------------- | :------------------------------------------------------------------------------------------------------- | :------------------------------ |
-| `FrameworkHeader` | Dark navy banner with diagonal orange accent. Title + subtitle. Matches template header style exactly.   | `title`, `subtitle`             |
-| `LoadingSkeleton` | Shimmer placeholder cards for each framework section while AI is generating.                             | `rows?`, `variant?`             |
-| `StepBadge`       | Step 1 / Step 2 numbered indicator shown above each framework trigger. With status: pending/active/done. | `step`, `status`                |
-| `Button`          | Primary (navy fill + orange border) and ghost variants. Loading spinner state built in.                  | `variant`, `loading`, `onClick` |
-
-### 5.3. Hooks & State Management
-
-#### Custom Hooks
-
-| Hook                | Description                                                                                                                                    | Returns                                                                  |
-| :------------------ | :--------------------------------------------------------------------------------------------------------------------------------------------- | :----------------------------------------------------------------------- |
-| `useFileUpload()`   | Manages two file slots (company doc + strategy doc). Converts each PDF to base64 for transport to the server. Validates PDF type and size (<20MB).                | `→ { companyFile, strategyFile, setFile, clearFile, bothReady, errors }` |
-| `useStep1()`        | Posts PDF base64 to `/api/step1`. The server extracts text from the PDFs using `pdf-parse` and sends that extracted text to Gemini. Parses and validates JSON response with Zod. Stores SOAP + 3HM output in state.                             | `→ { run, data, loading, error, status }`                                |
-| `useStep2()`        | Takes Step 1 output (not raw files). Posts to `/api/step2`. Returns validated BSC data. Cannot run before Step 1 completes.                    | `→ { run, data, loading, error, status }`                                |
-| `useStrategyPack()` | Orchestrator hook used in `page.tsx`. Combines `useStep1` + `useStep2` + `useFileUpload`. Single source of truth for the whole pipeline state. | `→ { upload, step1, step2, appState }`                                   |
-
-#### App State Machine
-
-The application's state machine, managed by `useStrategyPack()`, progresses through the following states:
-
-- **`idle`**: Initial state when the page loads. The upload panel is visible, and both file slots are empty.
-- **`files_ready`**: Both PDF documents have been uploaded. The "Generate Strategy Pack" button is enabled.
-- **`step1_loading`**: The API call to `/api/step1` is in progress. Loading skeletons are displayed for the SOAP and 3HM sections.
-- **`step1_complete`**: The SOAP and 3HM frameworks have been successfully generated and rendered. The "Generate BSC" button appears.
-- **`step2_loading`**: The API call to `/api/step2` is in progress. A loading skeleton is displayed for the BSC section.
-- **`complete`**: All three frameworks (SOAP, 3HM, and BSC) are rendered, and the full Strategy Pack is visible.
-
-## 6. Design System
-
-### 6.1. Colour Palette
-
-| Color Name | Hex Code  | Description          |
-| :--------- | :-------- | :------------------- |
-| Navy       | `#0D1B2A` | Primary background   |
-| Navy-mid   | `#1A2E42` | Card backgrounds     |
-| Slate      | `#243B55` |                      |
-| Orange     | `#E8511A` | Accent color         |
-| Teal       | `#2EC4B6` | Interactive elements |
-| Off-white  | `#E8E8E8` |                      |
-| Muted      | `#8B9CAF` |                      |
-| RAG Green  | `#27AE60` | RAG status green     |
-| RAG Amber  | `#F39C12` | RAG status amber     |
-| RAG Red    | `#E74C3C` | RAG status red       |
-
-### 6.2. Typography
-
-- **IBM Plex Sans**: Used for display and headings, and body text.
-- **IBM Plex Mono**: Used for labels, codes, and badges, providing a precise and classified-data feel.
-
-### 6.3. CSS Variables (globals.css)
-
-```css
-:root {
-  /* Brand */
-  --navy: #0d1b2a;
-  --navy-mid: #1a2e42;
-  --slate: #243b55;
-  --orange: #e8511a;
-  --teal: #2ec4b6;
-  --off-white: #e8e8e8;
-  --muted: #8b9caf;
-  /* RAG */
-  --rag-green: #27ae60;
-  --rag-amber: #f39c12;
-  --rag-red: #e74c3c;
-}
-```
-
-### 6.4. Key Design Decisions
-
-- **Dark base**: A full-page navy background (`#0D1B2A`) with framework cards on a slightly lighter navy-mid (`#1A2E42`), and white text, to evoke a Defence sector aesthetic.
-- **Orange diagonal**: A diagonal orange slash accent on the top-right of every `FrameworkHeader`, directly referencing the template's visual language.
-- **Teal accents**: Used for interactive elements such as buttons, active states, and horizon badges. Orange is used for structural elements, while teal signifies interactivity.
-- **IBM Plex Mono**: Applied to labels, codes, step markers, and BSC field names to give a sense of precision and classified data without being visually noisy.
+- The current implementation relies on private blob access using a server-side token.
+- The upload route is the first line of defense for file type validation and duplicate upload handling.
+- Step 1 is the point where AI output is parsed and validated before rendering.
