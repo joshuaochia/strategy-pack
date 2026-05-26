@@ -2,9 +2,10 @@ import type { Step1Output, Step2Output } from "./strategy";
 
 // ─── STEP 1 ──────────────────────────────────────────────────────────────────
 
+// now:
 export interface Step1Request {
-  companyDocBase64: string;
-  strategyDocBase64: string;
+  companyDocUrl: string;
+  strategyDocUrl: string;
 }
 
 export interface Step1Response {

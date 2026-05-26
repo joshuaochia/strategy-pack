@@ -32,7 +32,7 @@ export function useStrategyPack() {
       return;
     }
 
-    await step1.run(upload.companyFile.base64, upload.strategyFile.base64);
+    await step1.run(upload.companyFile.url, upload.strategyFile.url);
   }, [upload.companyFile, upload.strategyFile, step1]);
 
   // ─── Step 2 trigger ───────────────────────────────────────────────────────

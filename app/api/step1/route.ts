@@ -6,28 +6,43 @@ import { safeParseJSON } from "@/lib/utils";
 import type { Step1Request } from "@/types";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+
+async function urlToBase64(url: string): Promise<string> {
+  const res = await fetch(url, {
+    headers: {
+      Authorization: `Bearer ${process.env.BLOB_READ_WRITE_TOKEN}`,
+    },
+  });
+
+  const buffer = await res.arrayBuffer();
+  return Buffer.from(buffer).toString("base64");
+}
 
 export async function POST(req: NextRequest) {
   try {
     const body: Step1Request = await req.json();
-    const { companyDocBase64, strategyDocBase64 } = body;
+    const { companyDocUrl, strategyDocUrl } = body;
 
-    if (!companyDocBase64 || !strategyDocBase64) {
+    if (!companyDocUrl || !strategyDocUrl) {
       return NextResponse.json(
-        { success: false, error: "Both documents are required" },
+        { success: false, error: "Both document URLs are required" },
         { status: 400 },
       );
     }
+
+    // Fetch both blobs server-side and convert to base64
+    const [companyDocBase64, strategyDocBase64] = await Promise.all([
+      urlToBase64(companyDocUrl),
+      urlToBase64(strategyDocUrl),
+    ]);
 
     const result = await geminiModel.generateContent({
       contents: [
         {
           role: "user",
           parts: [
-            // System instructions
             { text: STEP1_SYSTEM_PROMPT },
-
-            // Company PDF sent natively — no parsing needed
             { text: "--- COMPANY DOCUMENT ---" },
             {
               inlineData: {
@@ -35,8 +50,6 @@ export async function POST(req: NextRequest) {
                 data: companyDocBase64,
               },
             },
-
-            // Strategy PDF sent natively
             { text: "--- STRATEGY DOCUMENT ---" },
             {
               inlineData: {
@@ -44,24 +57,17 @@ export async function POST(req: NextRequest) {
                 data: strategyDocBase64,
               },
             },
-
-            // Task
             { text: `--- TASK ---\n${STEP1_USER_PROMPT}` },
           ],
         },
       ],
     });
 
-    const response = await result.response;
-    const raw = response.text();
-
+    const raw = result.response.text();
     const parsed = safeParseJSON(raw);
 
     if (!parsed) {
-      console.error(
-        "[/api/step1] Failed to parse JSON from model response:",
-        raw,
-      );
+      console.error("[/api/step1] Failed to parse JSON:", raw);
       return NextResponse.json(
         {
           success: false,
@@ -72,7 +78,6 @@ export async function POST(req: NextRequest) {
     }
 
     const validated = Step1OutputSchema.safeParse(parsed);
-
     if (!validated.success) {
       console.error(
         "[/api/step1] Zod validation failed:",

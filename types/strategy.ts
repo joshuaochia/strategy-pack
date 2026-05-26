@@ -95,4 +95,5 @@ export interface UploadedFile {
   base64: string;
   name: string;
   sizeKB: number;
+  url: string;
 }

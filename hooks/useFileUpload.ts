@@ -23,10 +23,17 @@ interface UseFileUploadReturn extends FileUploadState {
 }
 
 async function processFile(file: File): Promise<UploadedFile> {
-  const base64 = await fileToBase64(file);
+  // Upload to Vercel Blob via your /api/upload route
+  const form = new FormData();
+  form.append("file", file);
+
+  const res = await fetch("/api/upload", { method: "POST", body: form });
+  const { url } = await res.json();
+
   return {
     file,
-    base64,
+    base64: "", // no longer needed
+    url, // blob URL — pass this to step1
     name: file.name,
     sizeKB: Math.round(file.size / 1024),
   };
